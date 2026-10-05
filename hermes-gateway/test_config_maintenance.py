@@ -50,7 +50,8 @@ class MaintenanceTests(unittest.TestCase):
         if args[0] == "set":
             data = self.read()
             root = args[1].split(".")[0]
-            data[root] = {"telegram": json.loads(args[2])}
+            key = args[1].split(".")[1]
+            data.setdefault(root, {})[key] = json.loads(args[2])
             self.write(data)
         if args[0] == "get":
             return json.dumps(self.read()["platform_toolsets"]["telegram"])
@@ -154,6 +155,17 @@ class MaintenanceTests(unittest.TestCase):
             self.run_maintenance()
         self.assertNotIn(("check",), self.calls)
         self.assertEqual(list(self.config.parent.glob("*.bak")), [])
+
+    def test_automatic_tools_are_denied_through_native_supported_setting(self):
+        def resolver(config):
+            tools = set(maintenance.TOOLSETS + ["terminal", "platform_native"])
+            return tools - set(config.get("agent", {}).get("disabled_toolsets", []))
+        self.run_maintenance(resolver=resolver)
+        self.assertEqual(set(resolver(self.read())), set(maintenance.TOOLSETS))
+        self.assertEqual(self.read()["agent"]["disabled_toolsets"], ["platform_native", "terminal"])
+        self.calls.clear()
+        self.run_maintenance(resolver=resolver)
+        self.assertFalse(any(call[0] in ("migrate", "set") for call in self.calls))
 
 
 if __name__ == "__main__":

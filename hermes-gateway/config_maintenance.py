@@ -3,6 +3,7 @@ import contextlib
 import datetime
 import json
 import os
+import re
 from pathlib import Path
 import subprocess
 import sys
@@ -110,12 +111,26 @@ def maintain(action, toolsets, native, platform_resolver, report):
     candidate_known["telegram"] = declined
     candidate["known_builtin_toolsets"] = candidate_known
     resolved = set(platform_resolver(candidate))
+    # The pinned resolver also recovers platform-native tools and auto-enables
+    # bundled plugins. Its supported global deny list is applied last.
+    agent = raw.get("agent") or {}
+    if not isinstance(agent, dict) or not isinstance(agent.get("disabled_toolsets", []), list):
+        raise MaintenanceError("agent.disabled_toolsets must be a list")
+    existing_disabled = agent.get("disabled_toolsets", [])
+    unwanted = resolved - set(TOOLSETS)
+    if any(not isinstance(name, str) or not re.fullmatch(r"[a-zA-Z0-9_-]+", name)
+           for name in unwanted | set(existing_disabled)):
+        raise MaintenanceError("unexpected toolset identifier requires separate review")
+    disabled = sorted(set(existing_disabled) | unwanted)
+    candidate["agent"] = dict(agent, disabled_toolsets=disabled)
+    resolved = set(platform_resolver(candidate))
     if resolved != set(TOOLSETS):
         raise MaintenanceError("native tool resolution differs from approved tool names")
     saved = raw.get("platform_toolsets", {})
     if not isinstance(saved, dict):
         raise MaintenanceError("platform_toolsets must be a mapping")
-    if current == latest and saved.get("telegram") == TOOLSETS and known.get("telegram") == declined:
+    if (current == latest and saved.get("telegram") == TOOLSETS
+            and known.get("telegram") == declined and existing_disabled == disabled):
         report.append("maintenance: already applied; no config writes or migration")
         return
     backup = backup_config()
@@ -134,6 +149,9 @@ def maintain(action, toolsets, native, platform_resolver, report):
         report.append("declined automatically introduced toolsets: bfl")
     if migrated.get("platform_toolsets", {}).get("telegram") != TOOLSETS:
         cli("set", "platform_toolsets.telegram", json.dumps(TOOLSETS))
+    if migrated.get("agent", {}).get("disabled_toolsets", []) != disabled:
+        cli("set", "agent.disabled_toolsets", json.dumps(disabled))
+    report.append("suppressed automatic toolsets: " + json.dumps(disabled))
     cli("check")
     # Native get validates the resolved config rather than just the YAML override.
     if json.loads(cli("get", "platform_toolsets.telegram", "--json")) != TOOLSETS:
