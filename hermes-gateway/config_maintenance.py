@@ -94,7 +94,12 @@ def maintain(action, toolsets, native, platform_resolver, report):
         raise MaintenanceError("explicit schema predates native migration support floor")
     if current > latest:
         raise MaintenanceError("configuration is newer than runtime")
-    if raw.get("mcp_servers") or raw.get("plugins"):
+    plugins = raw.get("plugins") or {}
+    # Native plugin discovery records declined plugins as a nonempty mapping.
+    # Disabled entries do not add tools; explicit enabled plugins still need review.
+    if not isinstance(plugins, dict):
+        raise MaintenanceError("plugin settings must be a mapping")
+    if raw.get("mcp_servers") or plugins.get("enabled") or set(plugins) - {"enabled", "disabled"}:
         raise MaintenanceError("additional tool sources require separate review")
     env_file = CONFIG.parent / ".env"
     if env_file.is_symlink():

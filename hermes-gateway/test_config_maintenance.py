@@ -167,6 +167,15 @@ class MaintenanceTests(unittest.TestCase):
         self.run_maintenance(resolver=resolver)
         self.assertFalse(any(call[0] in ("migrate", "set") for call in self.calls))
 
+    def test_declined_plugins_do_not_break_idempotent_maintenance(self):
+        self.write(dict(self.original, plugins={"enabled": [], "disabled": ["example"]}))
+        self.run_maintenance()
+        self.run_maintenance()
+        self.assertEqual(len(list(self.config.parent.glob("*.bak"))), 1)
+        self.write(dict(self.original, plugins={"enabled": ["example"]}))
+        with self.assertRaises(maintenance.MaintenanceError):
+            self.run_maintenance()
+
 
 if __name__ == "__main__":
     unittest.main()
