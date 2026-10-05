@@ -12,6 +12,8 @@ import yaml
 CONFIG = Path("/data/config.yaml")
 CLI = "/opt/hermes/.venv/bin/hermes"
 TOOLSETS = ["memory", "session_search", "todo"]
+# Pinned tools_config.py auto-enables bfl even for explicit platform lists.
+DECLINED_RECENT_TOOLSETS = ["bfl"]
 
 
 class MaintenanceError(RuntimeError):
@@ -100,13 +102,20 @@ def maintain(action, toolsets, native, platform_resolver, report):
     candidate_platforms = dict(raw.get("platform_toolsets") or {})
     candidate_platforms["telegram"] = list(toolsets)
     candidate["platform_toolsets"] = candidate_platforms
+    known = raw.get("known_builtin_toolsets") or {}
+    if not isinstance(known, dict) or not isinstance(known.get("telegram", []), list):
+        raise MaintenanceError("known_builtin_toolsets.telegram must be a list")
+    declined = sorted(set(known.get("telegram", []) + DECLINED_RECENT_TOOLSETS))
+    candidate_known = dict(known)
+    candidate_known["telegram"] = declined
+    candidate["known_builtin_toolsets"] = candidate_known
     resolved = set(platform_resolver(candidate))
     if resolved != set(TOOLSETS):
         raise MaintenanceError("native tool resolution differs from approved tool names")
     saved = raw.get("platform_toolsets", {})
     if not isinstance(saved, dict):
         raise MaintenanceError("platform_toolsets must be a mapping")
-    if current == latest and saved.get("telegram") == TOOLSETS:
+    if current == latest and saved.get("telegram") == TOOLSETS and known.get("telegram") == declined:
         report.append("maintenance: already applied; no config writes or migration")
         return
     backup = backup_config()
@@ -120,6 +129,9 @@ def maintain(action, toolsets, native, platform_resolver, report):
     after, expected = native.check_config_version()
     if after != expected:
         raise MaintenanceError("native migration did not reach current schema")
+    if migrated.get("known_builtin_toolsets", {}).get("telegram") != declined:
+        cli("set", "known_builtin_toolsets.telegram", json.dumps(declined))
+        report.append("declined automatically introduced toolsets: bfl")
     if migrated.get("platform_toolsets", {}).get("telegram") != TOOLSETS:
         cli("set", "platform_toolsets.telegram", json.dumps(TOOLSETS))
     cli("check")
@@ -128,6 +140,8 @@ def maintain(action, toolsets, native, platform_resolver, report):
         raise MaintenanceError("resolved Telegram override differs from approved list")
     if raw_config().get("platform_toolsets", {}).get("telegram") != TOOLSETS:
         raise MaintenanceError("Telegram override was not persisted")
+    if set(platform_resolver(native.load_config())) != set(TOOLSETS):
+        raise MaintenanceError("saved config resolves to unexpected Telegram toolsets")
     report.append(f"config version after: {after}")
     report.append("Telegram toolsets: memory, session_search, todo")
     report.append("native toolset resolution: memory, session_search, todo")
@@ -153,7 +167,7 @@ def main(action=None):
             from hermes_cli.tools_config import _get_platform_tools
             maintain(action, TOOLSETS, native,
                      lambda config: _get_platform_tools(
-                         config, "telegram", include_default_mcp_servers=False), report)
+                         config, "telegram"), report)
     except Exception as error:
         for line in report:
             print("[config-maintenance] " + line)

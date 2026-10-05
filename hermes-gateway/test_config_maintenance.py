@@ -27,6 +27,7 @@ class MaintenanceTests(unittest.TestCase):
             check_config_version=lambda: (self.read().get("_config_version", 0), 38),
             DEFAULT_CONFIG={"_config_version": 38, "model": {}, "memory": {}},
             REQUIRED_ENV_VARS={},
+            load_config=self.read,
         )
         for name, value in (("CONFIG", self.config),):
             patcher = patch.object(maintenance, name, value)
@@ -48,7 +49,8 @@ class MaintenanceTests(unittest.TestCase):
             self.write(dict(self.read(), _config_version=38))
         if args[0] == "set":
             data = self.read()
-            data["platform_toolsets"] = {"telegram": json.loads(args[2])}
+            root = args[1].split(".")[0]
+            data[root] = {"telegram": json.loads(args[2])}
             self.write(data)
         if args[0] == "get":
             return json.dumps(self.read()["platform_toolsets"]["telegram"])
@@ -136,6 +138,15 @@ class MaintenanceTests(unittest.TestCase):
     def test_none_does_not_require_supervisor_options_access(self):
         with patch.object(Path, "read_text", side_effect=PermissionError("options are root-only")):
             self.assertEqual(maintenance.main("none"), 0)
+
+    def test_real_resolver_contract_requires_declining_recent_bfl(self):
+        def resolver(config):
+            if "bfl" not in config.get("known_builtin_toolsets", {}).get("telegram", []):
+                return maintenance.TOOLSETS + ["bfl"]
+            return maintenance.TOOLSETS
+        self.run_maintenance(resolver=resolver)
+        self.assertEqual(resolver(self.read()), maintenance.TOOLSETS)
+        self.assertEqual(self.read()["known_builtin_toolsets"]["telegram"], ["bfl"])
 
     def test_malformed_config_rejected_before_native_check(self):
         self.config.write_text("secret: [SECRET_SENTINEL", encoding="utf-8")

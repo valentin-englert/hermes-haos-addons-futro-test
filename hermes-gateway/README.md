@@ -43,6 +43,12 @@ toolsets are not selected. The option defaults to `none`, so existing installs
 do not write `/data/config.yaml` on restart. Native CLI output is withheld from
 the add-on log so configuration values cannot leak.
 
+The pinned runtime automatically introduces `bfl` even with an explicit
+platform list. Maintenance records it as declined through the supported
+`known_builtin_toolsets.telegram` field, preserving any existing declines.
+Both the proposed and saved configuration are checked through the Gateway's
+own resolver; an unexpected toolset stops startup before credentials can be used.
+
 ### OpenAI-compatible gateways such as 9Router
 
 The pinned Hermes gateway keeps its active model in persistent
