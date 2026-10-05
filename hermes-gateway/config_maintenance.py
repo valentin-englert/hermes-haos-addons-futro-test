@@ -10,7 +10,6 @@ import sys
 import yaml
 
 CONFIG = Path("/data/config.yaml")
-OPTIONS = Path("/data/options.json")
 CLI = "/opt/hermes/.venv/bin/hermes"
 TOOLSETS = ["memory", "session_search", "todo"]
 
@@ -134,12 +133,16 @@ def maintain(action, toolsets, native, platform_resolver, report):
     report.append("native toolset resolution: memory, session_search, todo")
 
 
-def main():
+def main(action=None):
     report = []
     phase = "options"
     try:
-        options = json.loads(OPTIONS.read_text(encoding="utf-8"))
-        action = options.get("config_maintenance_action", "none")
+        if action is None:
+            if len(sys.argv) != 2:
+                raise MaintenanceError("exactly one maintenance action is required")
+            action = sys.argv[1]
+        if action not in ("none", "check", "migrate"):
+            raise MaintenanceError("unsupported maintenance action")
         if action == "none":
             return 0
         phase = "maintenance"

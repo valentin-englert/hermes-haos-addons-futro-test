@@ -18,7 +18,6 @@ class MaintenanceTests(unittest.TestCase):
         self.directory = tempfile.TemporaryDirectory()
         self.addCleanup(self.directory.cleanup)
         self.config = Path(self.directory.name) / "config.yaml"
-        self.options = self.config.parent / "options.json"
         self.original = {"model": {"default": "keep-this-route"}, "terminal": {"backend": "docker"}}
         self.write(self.original)
         self.calls = []
@@ -29,7 +28,7 @@ class MaintenanceTests(unittest.TestCase):
             DEFAULT_CONFIG={"_config_version": 38, "model": {}, "memory": {}},
             REQUIRED_ENV_VARS={},
         )
-        for name, value in (("CONFIG", self.config), ("OPTIONS", self.options)):
+        for name, value in (("CONFIG", self.config),):
             patcher = patch.object(maintenance, name, value)
             patcher.start()
             self.addCleanup(patcher.stop)
@@ -129,11 +128,14 @@ class MaintenanceTests(unittest.TestCase):
         self.assertFalse(run.call_args.kwargs.get("shell", False))
 
     def test_main_suppresses_raw_exception_values(self):
-        self.options.write_text("SECRET_SENTINEL not JSON", encoding="utf-8")
         output = io.StringIO()
         with contextlib.redirect_stdout(output), contextlib.redirect_stderr(output):
-            self.assertEqual(maintenance.main(), 1)
+            self.assertEqual(maintenance.main("SECRET_SENTINEL unsupported action"), 1)
         self.assertNotIn("SECRET_SENTINEL", output.getvalue())
+
+    def test_none_does_not_require_supervisor_options_access(self):
+        with patch.object(Path, "read_text", side_effect=PermissionError("options are root-only")):
+            self.assertEqual(maintenance.main("none"), 0)
 
     def test_malformed_config_rejected_before_native_check(self):
         self.config.write_text("secret: [SECRET_SENTINEL", encoding="utf-8")
