@@ -111,6 +111,7 @@ def maintain(action, toolsets, native, platform_resolver, report):
     candidate_known["telegram"] = declined
     candidate["known_builtin_toolsets"] = candidate_known
     resolved = set(platform_resolver(candidate))
+    report.append("maintenance policy: native deny-list v1")
     # The pinned resolver also recovers platform-native tools and auto-enables
     # bundled plugins. Its supported global deny list is applied last.
     agent = raw.get("agent") or {}
@@ -124,6 +125,7 @@ def maintain(action, toolsets, native, platform_resolver, report):
     disabled = sorted(set(existing_disabled) | unwanted)
     candidate["agent"] = dict(agent, disabled_toolsets=disabled)
     resolved = set(platform_resolver(candidate))
+    report.append("proposed native toolsets: " + json.dumps(sorted(resolved)))
     if resolved != set(TOOLSETS):
         raise MaintenanceError("native tool resolution differs from approved tool names")
     saved = raw.get("platform_toolsets", {})
