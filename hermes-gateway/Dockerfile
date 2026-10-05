@@ -32,6 +32,7 @@ ENV HERMES_HOME=/data
 ENV HERMES_WRITE_SAFE_ROOT=/data
 
 COPY run.sh /addon/run.sh
+COPY config_maintenance.py /addon/config_maintenance.py
 RUN chmod 0755 /addon/run.sh
 
 # Do NOT replace the upstream ENTRYPOINT wholesale — entrypoint-dispatch.sh

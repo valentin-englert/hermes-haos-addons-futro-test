@@ -187,6 +187,12 @@ PY
     fi
 }
 
+# Fixed actions only, inside this add-on and as its unprivileged Hermes user.
+# Run before existing routing/config writes. No Supervisor or Docker access.
+if [ "$(get_opt config_maintenance_action)" != "none" ] && [ -n "$(get_opt config_maintenance_action)" ]; then
+    /command/s6-setuidgid hermes /opt/hermes/.venv/bin/python /addon/config_maintenance.py
+fi
+
 remove_persistent_override OPENROUTER_API_KEY "$configured_openrouter_key"
 unset configured_openrouter_key
 

@@ -1,4 +1,4 @@
-# Hermes Gateway
+# Hermes Gateway 1.0.3 Test
 
 Runs [Hermes Agent](https://github.com/NousResearch/hermes-agent)'s
 messaging gateway (`hermes gateway run`): Telegram, Discord, Slack,
@@ -34,6 +34,14 @@ This is one of two add-ons in this repository — see the
 | `api_server_enabled` | bool | `false` | OpenAI-compatible endpoint on port `8642`. |
 | `api_server_key` | password | *(empty)* | **Required if `api_server_enabled` is true** — the add-on refuses to start otherwise (checked before handing off to hermes, with a clear log line). |
 | `extra_env` | list of `KEY=VALUE` | `[]` | Escape hatch for the many other integrations hermes supports (WhatsApp, Email, Matrix, Teams, Google Chat, other model providers — see upstream's `.env.example`) that don't have a dedicated option here yet. Malformed entries are logged and skipped, not silently dropped. |
+| `config_maintenance_action` | `none\|check\|migrate` | `none` | Fixed-purpose, one-shot maintenance through Hermes's own CLI. `migrate` takes a private `/data/config.yaml` backup first and applies the pinned build's native migration; no arbitrary command or file option exists. |
+
+`migrate` also validates the pinned Gateway resolver and persists only the
+approved Telegram toolsets: `memory`, `session_search`, and `todo`. Browser,
+computer-use, code execution, file, terminal, delegation, and Home Assistant
+toolsets are not selected. The option defaults to `none`, so existing installs
+do not write `/data/config.yaml` on restart. Native CLI output is withheld from
+the add-on log so configuration values cannot leak.
 
 ### OpenAI-compatible gateways such as 9Router
 

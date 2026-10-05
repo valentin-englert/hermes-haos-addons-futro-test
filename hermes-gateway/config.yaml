@@ -1,12 +1,13 @@
-name: "Hermes Gateway"
-version: "1.0.2"
-slug: "hermes_gateway"
+name: "Hermes Gateway 1.0.3 Test"
+version: "1.0.3"
+slug: "hermes_gateway_103_test"
 description: >-
   Nous Research's Hermes Agent, running as the messaging gateway
   (Telegram, Discord, Slack, WhatsApp, Email, cron) plus an optional
   OpenAI-compatible API server. Wraps the upstream nousresearch/hermes-agent
   Docker image unmodified — this add-on only translates Supervisor options
-  into the environment variables hermes already reads.
+  into the environment variables hermes already reads, with opt-in private
+  configuration maintenance through Hermes's own CLI.
 url: "https://github.com/laris-co/hermes-haos-addons/tree/main/hermes-gateway"
 # Upstream publishes native amd64 + arm64 images (see docker.yml build matrix:
 # arch: amd64 -> ubuntu-latest, arch: arm64 -> ubuntu-24.04-arm — both real
@@ -40,6 +41,7 @@ ports_description:
     otherwise. Never remap this to 80 or 443 — Home Assistant itself owns
     those on this host.
 options:
+  config_maintenance_action: none
   openrouter_api_key: ""
   telegram_bot_token: ""
   telegram_allowed_users: ""
@@ -53,6 +55,7 @@ options:
   api_server_key: ""
   extra_env: []
 schema:
+  config_maintenance_action: list(none|check|migrate)
   openrouter_api_key: password?
   telegram_bot_token: password?
   telegram_allowed_users: str?
