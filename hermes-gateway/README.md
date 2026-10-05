@@ -46,8 +46,12 @@ the add-on log so configuration values cannot leak.
 The pinned runtime automatically introduces `bfl` even with an explicit
 platform list. Maintenance records it as declined through the supported
 `known_builtin_toolsets.telegram` field, preserving any existing declines.
-Both the proposed and saved configuration are checked through the Gateway's
-own resolver; an unexpected toolset stops startup before credentials can be used.
+The pinned resolver also recovers platform-native tools (including `kanban`).
+Maintenance preserves existing `agent.disabled_toolsets` entries and adds any
+automatic toolsets outside the approved three to that supported global deny
+list. This restriction applies across platforms, fitting this control-plane
+instance. Both the proposed and saved configuration must resolve through the
+Gateway's own resolver to exactly the approved three; otherwise startup stops.
 
 ### OpenAI-compatible gateways such as 9Router
 
